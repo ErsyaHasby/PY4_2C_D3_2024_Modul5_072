@@ -37,8 +37,18 @@ dependencies:
   
   # Shared Preferences - untuk menyimpan data ringan di local storage
   shared_preferences: ^2.2.2
+  
+  # MongoDB Driver untuk Flutter
   mongo_dart: ^0.10.8
+  
+  # Environment Variables (.env file)
   flutter_dotenv: ^6.0.0
+  
+  # Task 4: Path Provider untuk akses app directory
+  path_provider: ^2.1.2
+  
+  # Date/Time formatting
+  intl: ^0.19.0
 
 dev_dependencies:
   flutter_test:

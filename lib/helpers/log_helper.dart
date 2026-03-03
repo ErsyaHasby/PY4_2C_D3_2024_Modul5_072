@@ -1,6 +1,8 @@
 import 'dart:developer' as dev;
-import 'package:intl/intl.dart'; // Tetap kita gunakan untuk presisi waktu
+import 'dart:io'; // Task 4: File operations
+import 'package:intl/intl.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:path_provider/path_provider.dart'; // Task 4: App directory
 
 class LogHelper {
   static Future<void> writeLog(
@@ -27,8 +29,44 @@ class LogHelper {
       // 4. Output ke Terminal (Agar Bapak bisa lihat di PC saat flutter run)
       // Format: [14:30:05] [INFO] [log_view.dart] -> Database Terhubung
       print('$color[$timestamp][$label][$source] -> $message\x1B[0m');
+
+      // Task 4: 5. Output ke File Log (dd-mm-yyyy.log)
+      await _writeToFile(timestamp, label, source, message, level);
     } catch (e) {
       dev.log("Logging failed: $e", name: "SYSTEM", level: 1000);
+    }
+  }
+
+  // Task 4: Write log to file in /logs folder
+  static Future<void> _writeToFile(
+    String timestamp,
+    String label,
+    String source,
+    String message,
+    int level,
+  ) async {
+    try {
+      // 1. Get app directory (works on Android, iOS, Windows, etc.)
+      final directory = await getApplicationDocumentsDirectory();
+      final logsDir = Directory('${directory.path}/logs');
+
+      // 2. Create /logs folder if not exists
+      if (!await logsDir.exists()) {
+        await logsDir.create(recursive: true);
+      }
+
+      // 3. Format filename: dd-mm-yyyy.log (Task 4 requirement)
+      final dateStr = DateFormat('dd-MM-yyyy').format(DateTime.now());
+      final logFile = File('${logsDir.path}/$dateStr.log');
+
+      // 4. Format log entry (without color codes for file)
+      final logEntry = '[$timestamp][$label][$source] -> $message\n';
+
+      // 5. Append to file (creates if not exists)
+      await logFile.writeAsString(logEntry, mode: FileMode.append, flush: true);
+    } catch (e) {
+      // Fallback: jika file write gagal, hanya log ke dev console
+      dev.log("File logging failed: $e", name: "LogHelper", level: 1000);
     }
   }
 

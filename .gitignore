@@ -15,6 +15,10 @@ migrate_working_dir/
 # Environment Variables (Security)
 .env
 
+# Task 4: Log files and logs folder
+logs/
+*.log
+
 # IntelliJ related
 *.iml
 *.ipr
