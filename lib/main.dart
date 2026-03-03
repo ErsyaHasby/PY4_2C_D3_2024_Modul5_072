@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:logbook_app/features/onboarding/onboarding_view.dart';
+import 'package:logbook_app_modul4/features/onboarding/onboarding_view.dart';
 
 void main() {
   runApp(const MyApp());
