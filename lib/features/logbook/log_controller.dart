@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
+import 'package:hive_flutter/hive_flutter.dart';
 import 'models/log_model.dart';
 import 'package:logbook_app_modul5/services/mongo_service.dart';
+import 'package:logbook_app_modul5/services/access_control_service.dart';
 import 'package:logbook_app_modul5/helpers/log_helper.dart';
 
 class LogController {
@@ -10,13 +12,43 @@ class LogController {
   final ValueNotifier<List<LogModel>> filteredLogsNotifier =
       ValueNotifier<List<LogModel>>([]);
 
+  // Hive Box untuk Offline-First Storage
+  late Box<LogModel> _offlineBox;
+
   // Getter untuk mempermudah akses list data saat ini
   List<LogModel> get logs => logsNotifier.value;
 
   // --- KONSTRUKTOR ---
-  // Saat Controller dibuat, ia otomatis mencoba mengambil data dari Cloud
+  // Inisialisasi Hive Box dan load data
   LogController() {
-    loadFromDisk();
+    _initOfflineStorage();
+  }
+
+  /// Initialize Hive Box untuk Offline-First
+  Future<void> _initOfflineStorage() async {
+    try {
+      _offlineBox = await Hive.openBox<LogModel>('offline_logs');
+      await LogHelper.writeLog(
+        "Controller: Hive Box initialized (${_offlineBox.length} local logs)",
+        source: "log_controller.dart",
+        level: 3,
+      );
+      // Load from Hive immediately (Offline-First principe)
+      _loadFromHive();
+    } catch (e) {
+      await LogHelper.writeLog(
+        "Controller: Error initializing Hive - $e",
+        source: "log_controller.dart",
+        level: 1,
+      );
+    }
+  }
+
+  /// Load data dari Hive (Local-First)
+  void _loadFromHive() {
+    final localLogs = _offlineBox.values.toList();
+    logsNotifier.value = localLogs;
+    filteredLogsNotifier.value = localLogs;
   }
 
   // HOMEWORK: Search feature untuk filter logs secara real-time
@@ -34,7 +66,7 @@ class LogController {
     }
   }
 
-  // 1. Menambah data ke Cloud
+  // 1. Menambah data (Offline-First: Hive → MongoDB)
   Future<void> addLog(
     String title,
     String desc, {
@@ -51,23 +83,59 @@ class LogController {
     );
 
     try {
-      // Kirim ke MongoDB Atlas
-      await MongoService().insertLog(newLog);
-
-      // Update UI Lokal
-      final currentLogs = List<LogModel>.from(logsNotifier.value);
-      currentLogs.add(newLog);
-      logsNotifier.value = currentLogs;
-      filteredLogsNotifier.value = logsNotifier.value;
+      // STEP 1: Write to Hive FIRST (Instant response, no network wait)
+      await _offlineBox.add(newLog);
+      _loadFromHive(); // Update UI immediately
 
       await LogHelper.writeLog(
-        "SUCCESS: Tambah data '${newLog.title}' berhasil",
+        "OFFLINE-FIRST: Data '${newLog.title}' saved to Hive",
         source: "log_controller.dart",
         level: 2,
       );
+
+      // STEP 2: Background sync to MongoDB (try-catch for offline tolerance)
+      try {
+        final insertedId = await MongoService().insertLog(newLog);
+
+        if (insertedId != null) {
+          // PENTING: Update Hive box dengan ID dari MongoDB
+          // Ini membuat icon berubah dari orange (id==null) ke green (id!=null)
+          final updatedLog = LogModel(
+            id: insertedId,
+            title: newLog.title,
+            description: newLog.description,
+            date: newLog.date,
+            authorId: newLog.authorId,
+            teamId: newLog.teamId,
+          );
+
+          // Find index in Hive box dan update
+          final hiveIndex = _offlineBox.values.toList().indexWhere(
+            (log) => log.title == newLog.title && log.date == newLog.date,
+          );
+
+          if (hiveIndex != -1) {
+            await _offlineBox.putAt(hiveIndex, updatedLog);
+            _loadFromHive(); // Refresh UI (icon berubah green)
+          }
+
+          await LogHelper.writeLog(
+            "SYNC: Data '${newLog.title}' synced to Cloud (ID: $insertedId)",
+            source: "log_controller.dart",
+            level: 2,
+          );
+        }
+      } catch (e) {
+        // Tetap sukses karena sudah tersimpan di Hive
+        await LogHelper.writeLog(
+          "SYNC: Background sync failed (data safe in Hive) - $e",
+          source: "log_controller.dart",
+          level: 1,
+        );
+      }
     } catch (e) {
       await LogHelper.writeLog(
-        "ERROR: Gagal sinkronisasi Add - $e",
+        "ERROR: Gagal menyimpan ke Hive - $e",
         source: "log_controller.dart",
         level: 1,
       );
@@ -75,14 +143,29 @@ class LogController {
     }
   }
 
-  // 2. Memperbarui data di Cloud
+  // 2. Memperbarui data (Offline-First: Hive → MongoDB)
   Future<void> updateLog(
     int index,
     String newTitle,
-    String newDesc,
-  ) async {
+    String newDesc, {
+    Map<String, String>? currentUser, // Optional for backward compatibility
+  }) async {
     final currentLogs = List<LogModel>.from(logsNotifier.value);
     final oldLog = currentLogs[index];
+
+    // GATEKEEPER: Validasi RBAC di Controller layer
+    if (currentUser != null) {
+      final bool isOwner = oldLog.authorId == currentUser['uid'];
+      if (!AccessControlService.canPerform(
+        currentUser['role']!,
+        AccessControlService.actionUpdate,
+        isOwner: isOwner,
+      )) {
+        throw Exception(
+          'RBAC Denied: Role ${currentUser['role']} tidak memiliki akses untuk update data ini',
+        );
+      }
+    }
 
     final updatedLog = LogModel(
       id: oldLog.id, // ID harus tetap sama
@@ -94,22 +177,66 @@ class LogController {
     );
 
     try {
-      // Jalankan update di MongoService
-      await MongoService().updateLog(updatedLog);
-
-      // Jika sukses, baru perbarui state lokal
-      currentLogs[index] = updatedLog;
-      logsNotifier.value = currentLogs;
-      filteredLogsNotifier.value = logsNotifier.value;
+      // STEP 1: Update Hive FIRST
+      await _offlineBox.putAt(index, updatedLog);
+      _loadFromHive(); // Update UI immediately
 
       await LogHelper.writeLog(
-        "SUCCESS: Sinkronisasi Update '${oldLog.title}' Berhasil",
+        "OFFLINE-FIRST: Data '${oldLog.title}' updated in Hive",
         source: "log_controller.dart",
         level: 2,
       );
+
+      // STEP 2: Background sync to MongoDB
+      try {
+        // Jika data belum ter-sync (id==null), gunakan insert instead of update
+        if (oldLog.id == null) {
+          await LogHelper.writeLog(
+            "SYNC: Data belum ter-sync, melakukan insert...",
+            source: "log_controller.dart",
+            level: 3,
+          );
+
+          final insertedId = await MongoService().insertLog(updatedLog);
+
+          if (insertedId != null) {
+            // Update Hive dengan ID baru
+            final logWithId = LogModel(
+              id: insertedId,
+              title: updatedLog.title,
+              description: updatedLog.description,
+              date: updatedLog.date,
+              authorId: updatedLog.authorId,
+              teamId: updatedLog.teamId,
+            );
+            await _offlineBox.putAt(index, logWithId);
+            _loadFromHive();
+
+            await LogHelper.writeLog(
+              "SYNC: Data '${updatedLog.title}' inserted to Cloud (ID: $insertedId)",
+              source: "log_controller.dart",
+              level: 2,
+            );
+          }
+        } else {
+          // Data sudah ter-sync, lakukan update normal
+          await MongoService().updateLog(updatedLog);
+          await LogHelper.writeLog(
+            "SYNC: Update '${oldLog.title}' synced to Cloud",
+            source: "log_controller.dart",
+            level: 2,
+          );
+        }
+      } catch (e) {
+        await LogHelper.writeLog(
+          "SYNC: Background sync failed (data safe in Hive) - $e",
+          source: "log_controller.dart",
+          level: 1,
+        );
+      }
     } catch (e) {
       await LogHelper.writeLog(
-        "ERROR: Gagal sinkronisasi Update - $e",
+        "ERROR: Gagal update di Hive - $e",
         source: "log_controller.dart",
         level: 1,
       );
@@ -117,34 +244,59 @@ class LogController {
     }
   }
 
-  // 3. Menghapus data dari Cloud
-  Future<void> removeLog(int index) async {
+  // 3. Menghapus data (Offline-First: Hive → MongoDB)
+  Future<void> removeLog(
+    int index, {
+    Map<String, String>? currentUser, // Optional for backward compatibility
+  }) async {
     final currentLogs = List<LogModel>.from(logsNotifier.value);
     final targetLog = currentLogs[index];
 
-    try {
-      if (targetLog.id == null) {
+    // GATEKEEPER: Validasi RBAC di Controller layer
+    if (currentUser != null) {
+      final bool isOwner = targetLog.authorId == currentUser['uid'];
+      if (!AccessControlService.canPerform(
+        currentUser['role']!,
+        AccessControlService.actionDelete,
+        isOwner: isOwner,
+      )) {
         throw Exception(
-          "ID Log tidak ditemukan, tidak bisa menghapus di Cloud.",
+          'RBAC Denied: Role ${currentUser['role']} tidak memiliki akses untuk delete data ini',
         );
       }
+    }
 
-      // Hapus data di MongoDB Atlas
-      await MongoService().deleteLog(ObjectId.fromHexString(targetLog.id!));
-
-      // Jika sukses, baru hapus dari state lokal
-      currentLogs.removeAt(index);
-      logsNotifier.value = currentLogs;
-      filteredLogsNotifier.value = logsNotifier.value;
+    try {
+      // STEP 1: Delete from Hive FIRST
+      await _offlineBox.deleteAt(index);
+      _loadFromHive(); // Update UI immediately
 
       await LogHelper.writeLog(
-        "SUCCESS: Sinkronisasi Hapus '${targetLog.title}' Berhasil",
+        "OFFLINE-FIRST: Data '${targetLog.title}' deleted from Hive",
         source: "log_controller.dart",
         level: 2,
       );
+
+      // STEP 2: Background sync to MongoDB
+      if (targetLog.id != null) {
+        try {
+          await MongoService().deleteLog(ObjectId.fromHexString(targetLog.id!));
+          await LogHelper.writeLog(
+            "SYNC: Delete '${targetLog.title}' synced to Cloud",
+            source: "log_controller.dart",
+            level: 2,
+          );
+        } catch (e) {
+          await LogHelper.writeLog(
+            "SYNC: Background sync failed (data deleted locally) - $e",
+            source: "log_controller.dart",
+            level: 1,
+          );
+        }
+      }
     } catch (e) {
       await LogHelper.writeLog(
-        "ERROR: Gagal sinkronisasi Hapus - $e",
+        "ERROR: Gagal hapus dari Hive - $e",
         source: "log_controller.dart",
         level: 1,
       );
@@ -152,32 +304,97 @@ class LogController {
     }
   }
 
-  // Ganti pemanggilan SharedPreferences menjadi MongoService
-  Future<void> loadFromDisk() async {
+  // 4. Load data dengan Hybrid Strategy (Hive First + Cloud Sync)
+  // Modul 5: Offline-First dengan Team Isolation
+  Future<void> loadFromDisk({String? teamId}) async {
     try {
       await LogHelper.writeLog(
-        "Controller: Memuat data dari Cloud...",
+        "Controller: Loading data (Hybrid Strategy)${teamId != null ? ' for Team: $teamId' : ''}...",
         source: "log_controller.dart",
         level: 3,
       );
 
-      // Mengambil dari Cloud, bukan lokal
-      final cloudData = await MongoService().getLogs();
-      logsNotifier.value = cloudData;
-      filteredLogsNotifier.value = cloudData;
-
+      // STEP 1: Load from Hive FIRST (Instant, no network wait)
+      _loadFromHive();
       await LogHelper.writeLog(
-        "Controller: Berhasil memuat ${cloudData.length} data",
+        "Controller: Loaded ${_offlineBox.length} logs from Hive",
         source: "log_controller.dart",
-        level: 2,
+        level: 3,
       );
+
+      // STEP 2: Background sync from Cloud (non-blocking)
+      try {
+        final cloudData = await MongoService().getLogs(teamId: teamId);
+
+        // STEP 3: Smart Merge Strategy - Preserve unsynced local data
+        // Jangan hapus semua! Data dengan id==null (unsynced) harus dipertahankan
+
+        // 3a. Identifikasi data lokal yang belum ter-sync (id == null)
+        final unsyncedLocalData = _offlineBox.values
+            .where((log) => log.id == null)
+            .toList();
+
+        await LogHelper.writeLog(
+          "SYNC: Found ${unsyncedLocalData.length} unsynced local items",
+          source: "log_controller.dart",
+          level: 3,
+        );
+
+        // 3b. Clear Hive (akan diisi ulang dengan merged data)
+        await _offlineBox.clear();
+
+        // 3c. Tambahkan data dari cloud terlebih dahulu
+        await _offlineBox.addAll(cloudData);
+
+        // 3d. Re-add unsynced local data (PENTING: ini yang membuat data offline tidak hilang!)
+        for (var unsyncedLog in unsyncedLocalData) {
+          // Try sync to cloud first
+          try {
+            await MongoService().insertLog(unsyncedLog);
+            await LogHelper.writeLog(
+              "SYNC: Unsynced data '${unsyncedLog.title}' successfully synced to Cloud",
+              source: "log_controller.dart",
+              level: 2,
+            );
+            // Setelah berhasil sync, reload dari cloud untuk dapat ID
+            final updatedCloudData = await MongoService().getLogs(
+              teamId: teamId,
+            );
+            await _offlineBox.clear();
+            await _offlineBox.addAll(updatedCloudData);
+          } catch (e) {
+            // Jika masih gagal sync, keep di Hive dengan id==null
+            await _offlineBox.add(unsyncedLog);
+            await LogHelper.writeLog(
+              "SYNC: Unsynced data '${unsyncedLog.title}' kept in Hive (sync failed) - $e",
+              source: "log_controller.dart",
+              level: 1,
+            );
+          }
+        }
+
+        _loadFromHive(); // Refresh UI dengan merged data
+
+        await LogHelper.writeLog(
+          "SYNC: Merge complete (${_offlineBox.length} total logs)",
+          source: "log_controller.dart",
+          level: 2,
+        );
+      } catch (e) {
+        // Gagal sync dari Cloud? No problem, pakai data lokal
+        await LogHelper.writeLog(
+          "SYNC: Cloud sync failed, using local data - $e",
+          source: "log_controller.dart",
+          level: 1,
+        );
+      }
     } catch (e) {
       await LogHelper.writeLog(
-        "Controller: Error saat memuat data - $e",
+        "Controller: Error loading data - $e",
         source: "log_controller.dart",
         level: 1,
       );
-      // Set ke empty list jika gagal
+      // Set ke empty list jika semua gagal
       logsNotifier.value = [];
       filteredLogsNotifier.value = [];
     }

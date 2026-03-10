@@ -3,52 +3,64 @@
 
 class LoginController {
   // TASK 2: Database Multiple Users menggunakan Map
-  // Key: username, Value: password
-  // Map lebih scalable daripada hardcode multiple if-else
-  final Map<String, String> _users = {
-    'admin': '123',
-    'user': 'user123',
-    'guest': 'guest',
-    'dosen': 'polban2024',
+  // Key: username, Value: User Data (password, role, teamId)
+  // Modul 5: Extended with RBAC data
+  final Map<String, Map<String, String>> _users = {
+    'admin': {
+      'password': '123',
+      'role': 'Ketua', // Full access
+      'uid': 'uid_admin',
+      'teamId': 'MEKTRA_KLP_01',
+    },
+    'user': {
+      'password': 'user123',
+      'role': 'Anggota',
+      'uid': 'uid_user',
+      'teamId': 'MEKTRA_KLP_01',
+    },
+    'guest': {
+      'password': 'guest',
+      'role': 'Anggota',
+      'uid': 'uid_guest',
+      'teamId': 'GUEST_TEAM',
+    },
+    'dosen': {
+      'password': 'polban2024',
+      'role': 'Asisten', // Read & Update only
+      'uid': 'uid_dosen',
+      'teamId': 'DOSEN_TEAM',
+    },
   };
 
   // Fungsi untuk mendapatkan list username yang tersedia
-  // Berguna untuk debugging atau menampilkan hint
   List<String> getAvailableUsers() {
     return _users.keys.toList();
   }
 
-  // Fungsi pengecekan (Logic-Only) - UPDATED untuk Multiple Users
-  // Input: username dan password dari user
-  // Output: true jika cocok, false jika salah
-  bool login(String username, String password) {
+  // Fungsi pengecekan (Logic-Only) - UPDATED untuk RBAC
+  // Output: Map user data jika berhasil, null jika gagal
+  Map<String, String>? login(String username, String password) {
     // Validasi menggunakan Map
-    // Cek apakah username ada di Map DAN passwordnya cocok
-    if (_users.containsKey(username) && _users[username] == password) {
-      return true; // Login berhasil
+    if (_users.containsKey(username) &&
+        _users[username]!['password'] == password) {
+      // Return user data lengkap untuk RBAC
+      return {
+        'username': username,
+        'role': _users[username]!['role']!,
+        'uid': _users[username]!['uid']!,
+        'teamId': _users[username]!['teamId']!,
+      };
     }
-    return false; // Login gagal (username tidak ada atau password salah)
+    return null; // Login gagal
   }
 
   // BONUS: Fungsi untuk cek apakah username exist
-  // Berguna untuk memberikan pesan error yang lebih spesifik
   bool isUsernameExist(String username) {
     return _users.containsKey(username);
   }
 
-  // ✅ Open-Closed Principle (OCP):
-  // Struktur Map ini mudah dikembangkan:
-
-  // void addUser(String username, String password) {
-  //   _users[username] = password;
-  // }
-
-  // void removeUser(String username) {
-  //   _users.remove(username);
-  // }
-
-  // Future<bool> loginFromAPI(String username, String password) async {
-  //   // Bisa tambah fungsi baru untuk validasi dari server/API
-  //   // tanpa mengubah fungsi login() yang sudah ada
-  // }
+  // Helper: Get role for specific user (for debugging)
+  String? getUserRole(String username) {
+    return _users[username]?['role'];
+  }
 }

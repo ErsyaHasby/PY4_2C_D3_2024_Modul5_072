@@ -34,13 +34,13 @@ class LogModel {
 
   // [CONVERT] Memasukkan data ke "Kardus" (BSON/Map) untuk dikirim ke Cloud
   Map<String, dynamic> toMap() => {
-        '_id': id != null ? ObjectId.fromHexString(id!) : ObjectId(),
-        'title': title,
-        'description': description,
-        'date': date,
-        'authorId': authorId,
-        'teamId': teamId,
-      };
+    '_id': id != null ? ObjectId.fromHexString(id!) : ObjectId(),
+    'title': title,
+    'description': description,
+    'date': date,
+    'authorId': authorId,
+    'teamId': teamId,
+  };
 
   // [REVERT] Membongkar "Kardus" (BSON/Map) kembali menjadi objek Flutter
   factory LogModel.fromMap(Map<String, dynamic> map) {

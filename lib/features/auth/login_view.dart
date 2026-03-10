@@ -55,21 +55,22 @@ class _LoginViewState extends State<LoginView> {
     }
 
     // Panggil fungsi login dari Controller (Logic terpisah!)
-    bool isSuccess = _controller.login(user, pass);
+    // Modul 5: Mengembalikan Map user data (bukan boolean)
+    final userData = _controller.login(user, pass);
 
-    if (isSuccess) {
+    if (userData != null) {
       // TASK 2: Reset login attempts saat berhasil
       setState(() {
         _loginAttempts = 0;
       });
 
-      // Login berhasil - Navigasi ke LogView
+      // Login berhasil - Navigasi ke LogView dengan user data lengkap
       // pushReplacement = Ganti halaman (tidak bisa back)
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          // Passing data: kirim variabel 'user' ke parameter 'username'
-          builder: (context) => LogView(username: user),
+          // Modul 5: Pass user data untuk RBAC (role, uid, teamId)
+          builder: (context) => LogView(currentUser: userData),
         ),
       );
     } else {

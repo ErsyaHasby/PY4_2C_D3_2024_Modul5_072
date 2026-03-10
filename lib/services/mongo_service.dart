@@ -66,18 +66,33 @@ class MongoService {
     }
   }
 
-  /// READ: Mengambil data dari Cloud
-  Future<List<LogModel>> getLogs() async {
+  /// READ: Mengambil data dari Cloud (dengan Team Isolation)
+  ///
+  /// Parameter:
+  /// - teamId: Filter data berdasarkan tim (collaborative isolation)
+  ///   Jika null, ambil semua data (untuk admin/debugging)
+  Future<List<LogModel>> getLogs({String? teamId}) async {
     try {
       final collection = await _getSafeCollection();
 
       await LogHelper.writeLog(
-        "INFO: Fetching data from Cloud...",
+        "INFO: Fetching data from Cloud${teamId != null ? ' (Team: $teamId)' : ' (All Teams)'}...",
         source: _source,
         level: 3,
       );
 
-      final List<Map<String, dynamic>> data = await collection.find().toList();
+      // Query dengan atau tanpa filter teamId
+      final query = teamId != null ? where.eq('teamId', teamId) : where;
+      final List<Map<String, dynamic>> data = await collection
+          .find(query)
+          .toList();
+
+      await LogHelper.writeLog(
+        "SUCCESS: Fetched ${data.length} logs from Cloud",
+        source: _source,
+        level: 2,
+      );
+
       return data.map((json) => LogModel.fromMap(json)).toList();
     } catch (e) {
       await LogHelper.writeLog(
@@ -90,16 +105,22 @@ class MongoService {
   }
 
   /// CREATE: Menambahkan data baru
-  Future<void> insertLog(LogModel log) async {
+  /// Returns: MongoDB generated ObjectId (untuk update Hive box)
+  Future<String?> insertLog(LogModel log) async {
     try {
       final collection = await _getSafeCollection();
-      await collection.insertOne(log.toMap());
+      final result = await collection.insertOne(log.toMap());
+
+      // Extract inserted ID dari WriteResult
+      final insertedId = result.id?.toHexString();
 
       await LogHelper.writeLog(
-        "SUCCESS: Data '${log.title}' Saved to Cloud",
+        "SUCCESS: Data '${log.title}' Saved to Cloud (ID: $insertedId)",
         source: _source,
         level: 2,
       );
+
+      return insertedId;
     } catch (e) {
       await LogHelper.writeLog(
         "ERROR: Insert Failed - $e",
