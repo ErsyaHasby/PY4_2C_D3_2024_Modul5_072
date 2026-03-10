@@ -1,5 +1,5 @@
-name: logbook_app_modul4
-description: "Modul 4 - Logbook Application Project"
+name: logbook_app_modul5
+description: "Modul 5 - Logbook Application with Advanced Testing & Logging"
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:logbook_app_modul4/features/onboarding/onboarding_view.dart';
+import 'package:logbook_app_modul5/features/onboarding/onboarding_view.dart';
 
 void main() async {
   // Wajib untuk operasi asinkron sebelum runApp
@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'LogBook App',
+      title: 'LogBook App - Modul 5',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
       ),

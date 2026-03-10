@@ -1,7 +1,7 @@
-# Counter App with History Logger - Homework Modul 1
+# Logbook Application - Modul 5
 
 ## Deskripsi Project
-Aplikasi Flutter counter dengan fitur multi-step increment/decrement dan history logger yang menerapkan prinsip **Single Responsibility Principle (SRP)**. Project ini merupakan implementasi homework dari Modul 1 yang mencakup UI polishing, UX improvement, dan penerapan best practices dalam pengembangan Flutter.
+Aplikasi Flutter logbook dengan integrasi MongoDB, fitur CRUD lengkap, dan implementasi testing. Project ini merupakan pengembangan dari Modul 4 yang mencakup advanced testing, error handling, logging system, dan best practices dalam pengembangan aplikasi Flutter dengan database.
 
 ## Fitur yang Diimplementasikan
 

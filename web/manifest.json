@@ -1,11 +1,11 @@
 {
-    "name": "logbook_srp",
-    "short_name": "logbook_srp",
+    "name": "Logbook App Modul 5",
+    "short_name": "Logbook M5",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Logbook Application - Modul 5 with Advanced Testing & Logging",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

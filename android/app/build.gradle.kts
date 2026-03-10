@@ -5,6 +5,7 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// Modul 5 - Logbook Application
 android {
     namespace = "com.example.logbook_srp"
     compileSdk = flutter.compileSdkVersion

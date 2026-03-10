@@ -12,7 +12,7 @@
 .swiftpm/
 migrate_working_dir/
 
-# Environment Variables (Security)
+# Environment Variables (Security) - Modul 5
 .env
 
 # Task 4: Log files and logs folder
