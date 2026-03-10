@@ -30,6 +30,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
   late TextEditingController _titleController;
   late TextEditingController _descController;
   bool _isSaving = false;
+  late bool _isPublic; // Task 5: Privacy control state
 
   @override
   void initState() {
@@ -39,6 +40,8 @@ class _LogEditorPageState extends State<LogEditorPage> {
     _descController = TextEditingController(
       text: widget.log?.description ?? '',
     );
+    // Task 5: Initialize privacy state (default: private)
+    _isPublic = widget.log?.isPublic ?? false;
 
     // PENTING: Listener agar Pratinjau terupdate otomatis
     _descController.addListener(() {
@@ -69,14 +72,16 @@ class _LogEditorPageState extends State<LogEditorPage> {
           _descController.text.trim(),
           authorId: widget.currentUser['uid']!,
           teamId: widget.currentUser['teamId']!,
+          isPublic: _isPublic, // Task 5: Pass privacy setting
         );
       } else {
-        // MODE: Update (dengan RBAC validation)
+        // MODE: Update (dengan SOVEREIGNTY validation)
         await widget.controller.updateLog(
           widget.index!,
           _titleController.text.trim(),
           _descController.text.trim(),
           currentUser: widget.currentUser,
+          isPublic: _isPublic, // Task 5: Pass privacy setting
         );
       }
 
@@ -160,6 +165,35 @@ class _LogEditorPageState extends State<LogEditorPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Task 5: Public/Private Toggle
+                  Card(
+                    color: _isPublic
+                        ? Colors.green.shade50
+                        : Colors.grey.shade50,
+                    child: SwitchListTile(
+                      title: Text(
+                        _isPublic
+                            ? '🌍 Publik (Tim bisa lihat)'
+                            : '🔒 Privat (Hanya saya)',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: Text(
+                        _isPublic
+                            ? 'Catatan ini terlihat oleh tim, tapi tidak bisa diedit'
+                            : 'Catatan ini hanya terlihat oleh Anda',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      value: _isPublic,
+                      onChanged: (bool value) {
+                        setState(() {
+                          _isPublic = value;
+                        });
+                      },
+                      activeColor: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // Input Title
                   TextField(
                     controller: _titleController,

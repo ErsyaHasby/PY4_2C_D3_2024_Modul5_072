@@ -348,9 +348,17 @@ class _LogViewState extends State<LogView> {
       // Body: ValueListenableBuilder untuk Reactive UI
       body: ValueListenableBuilder<List<LogModel>>(
         valueListenable: _controller.logsNotifier,
-        builder: (context, logs, child) {
+        builder: (context, allLogs, child) {
+          // Task 5: PRIVACY FILTER (Hint 2)
+          // Show only: (1) logs owned by current user OR (2) public logs
+          final visibleLogs = allLogs.where((log) {
+            final bool isOwner = log.authorId == widget.currentUser['uid'];
+            final bool isPublicLog = log.isPublic == true;
+            return isOwner || isPublicLog;
+          }).toList();
+
           // Empty State
-          if (logs.isEmpty) {
+          if (visibleLogs.isEmpty) {
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -384,14 +392,15 @@ class _LogViewState extends State<LogView> {
           // List of Logs
           return ListView.builder(
             padding: const EdgeInsets.all(12),
-            itemCount: logs.length,
+            itemCount: visibleLogs.length,
             itemBuilder: (context, index) {
-              final log = logs[index];
+              final log = visibleLogs[index];
 
-              // Task 3: Check ownership and permissions
+              // Task 5: SOVEREIGNTY - Only owner can edit/delete (ignore role)
               final bool isOwner = log.authorId == widget.currentUser['uid'];
-              final canEdit = _accessPolicy.canUpdate(log.authorId);
-              final canDelete = _accessPolicy.canDelete(log.authorId);
+              // Task 3 RBAC is overridden by Task 5 sovereignty requirement
+              final canEdit = isOwner; // Hanya pemilik, bukan role-based
+              final canDelete = isOwner; // Hanya pemilik, bukan role-based
 
               return Card(
                 elevation: 2,

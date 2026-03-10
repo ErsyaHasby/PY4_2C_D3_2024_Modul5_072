@@ -8,17 +8,62 @@ void main() async {
   // Wajib untuk operasi asinkron sebelum runApp
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load ENV - Memuat konfigurasi dari file .env
-  await dotenv.load(fileName: ".env");
+  try {
+    debugPrint('📱 [STARTUP] Initializing app...');
 
-  // INISIALISASI HIVE (Modul 5 - Offline-First Strategy)
-  await Hive.initFlutter();
-  Hive.registerAdapter(LogModelAdapter()); // WAJIB: Sesuai nama di .g.dart
-  await Hive.openBox<LogModel>(
-    'offline_logs',
-  ); // Buka box sebelum Controller dipakai
+    // Load ENV - Memuat konfigurasi dari file .env
+    debugPrint('🔐 [STARTUP] Loading .env file...');
+    await dotenv.load(fileName: ".env");
+    debugPrint('✅ [STARTUP] .env loaded');
 
-  runApp(const MyApp());
+    // INISIALISASI HIVE (Modul 5 - Offline-First Strategy)
+    debugPrint('💾 [STARTUP] Initializing Hive...');
+    await Hive.initFlutter();
+    debugPrint('✅ [STARTUP] Hive initialized');
+
+    debugPrint('🔧 [STARTUP] Registering Hive adapter...');
+    Hive.registerAdapter(LogModelAdapter()); // WAJIB: Sesuai nama di .g.dart
+    debugPrint('✅ [STARTUP] Adapter registered');
+
+    debugPrint('📦 [STARTUP] Opening Hive box...');
+    await Hive.openBox<LogModel>('offline_logs').timeout(
+      const Duration(seconds: 10),
+      onTimeout: () {
+        debugPrint('⚠️ [STARTUP] Hive box timeout, deleting and retrying...');
+        Hive.deleteBoxFromDisk('offline_logs');
+        return Hive.openBox<LogModel>('offline_logs');
+      },
+    );
+    debugPrint('✅ [STARTUP] Hive box opened successfully');
+
+    debugPrint('🚀 [STARTUP] Starting app...');
+    runApp(const MyApp());
+  } catch (e, stackTrace) {
+    debugPrint('❌ [STARTUP] Fatal error: $e');
+    debugPrint('Stack trace: $stackTrace');
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error, size: 64, color: Colors.red),
+                const SizedBox(height: 16),
+                const Text('Initialization Failed'),
+                const SizedBox(height: 8),
+                Text(
+                  e.toString(),
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class MyApp extends StatelessWidget {

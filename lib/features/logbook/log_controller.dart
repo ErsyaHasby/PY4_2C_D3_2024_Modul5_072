@@ -3,7 +3,6 @@ import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
 import 'package:hive_flutter/hive_flutter.dart';
 import 'models/log_model.dart';
 import 'package:logbook_app_modul5/services/mongo_service.dart';
-import 'package:logbook_app_modul5/services/access_control_service.dart';
 import 'package:logbook_app_modul5/helpers/log_helper.dart';
 
 class LogController {
@@ -84,6 +83,7 @@ class LogController {
     String desc, {
     required String authorId,
     required String teamId,
+    bool isPublic = false, // Task 5: Privacy control
   }) async {
     if (_offlineBox == null) {
       throw Exception('Hive not initialized yet. Please wait...');
@@ -96,6 +96,7 @@ class LogController {
       date: DateTime.now().toString(),
       authorId: authorId,
       teamId: teamId,
+      isPublic: isPublic, // Task 5: Set visibility
     );
 
     try {
@@ -123,6 +124,7 @@ class LogController {
             date: newLog.date,
             authorId: newLog.authorId,
             teamId: newLog.teamId,
+            isPublic: newLog.isPublic, // Task 5: Preserve privacy setting
           );
 
           // Find index in Hive box dan update
@@ -165,6 +167,7 @@ class LogController {
     String newTitle,
     String newDesc, {
     Map<String, String>? currentUser, // Optional for backward compatibility
+    bool? isPublic, // Task 5: Optional privacy update
   }) async {
     if (_offlineBox == null) {
       throw Exception('Hive not initialized yet. Please wait...');
@@ -173,16 +176,12 @@ class LogController {
     final currentLogs = List<LogModel>.from(logsNotifier.value);
     final oldLog = currentLogs[index];
 
-    // GATEKEEPER: Validasi RBAC di Controller layer
+    // Task 5: SOVEREIGNTY - Only owner can edit (ignore role)
     if (currentUser != null) {
       final bool isOwner = oldLog.authorId == currentUser['uid'];
-      if (!AccessControlService.canPerform(
-        currentUser['role']!,
-        AccessControlService.actionUpdate,
-        isOwner: isOwner,
-      )) {
+      if (!isOwner) {
         throw Exception(
-          'RBAC Denied: Role ${currentUser['role']} tidak memiliki akses untuk update data ini',
+          'SOVEREIGNTY: Hanya pemilik catatan yang boleh mengedit!',
         );
       }
     }
@@ -194,6 +193,7 @@ class LogController {
       date: DateTime.now().toString(),
       authorId: oldLog.authorId, // Tetap sama
       teamId: oldLog.teamId, // Tetap sama
+      isPublic: isPublic ?? oldLog.isPublic, // Task 5: Update or preserve
     );
 
     try {
@@ -228,6 +228,7 @@ class LogController {
               date: updatedLog.date,
               authorId: updatedLog.authorId,
               teamId: updatedLog.teamId,
+              isPublic: updatedLog.isPublic, // Task 5: Preserve privacy
             );
             await _offlineBox!.putAt(index, logWithId);
             _loadFromHive();
@@ -276,16 +277,12 @@ class LogController {
     final currentLogs = List<LogModel>.from(logsNotifier.value);
     final targetLog = currentLogs[index];
 
-    // GATEKEEPER: Validasi RBAC di Controller layer
+    // Task 5: SOVEREIGNTY - Only owner can delete (ignore role)
     if (currentUser != null) {
       final bool isOwner = targetLog.authorId == currentUser['uid'];
-      if (!AccessControlService.canPerform(
-        currentUser['role']!,
-        AccessControlService.actionDelete,
-        isOwner: isOwner,
-      )) {
+      if (!isOwner) {
         throw Exception(
-          'RBAC Denied: Role ${currentUser['role']} tidak memiliki akses untuk delete data ini',
+          'SOVEREIGNTY: Hanya pemilik catatan yang boleh menghapus!',
         );
       }
     }

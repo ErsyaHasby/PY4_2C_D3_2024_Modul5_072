@@ -23,6 +23,9 @@ class LogModel {
   @HiveField(5)
   final String teamId; // BARU: ID kelompok untuk kolaborasi
 
+  @HiveField(6)
+  final bool isPublic; // TASK 5: Privacy control - true=Public, false=Private
+
   LogModel({
     this.id,
     required this.title,
@@ -30,6 +33,7 @@ class LogModel {
     required this.date,
     required this.authorId,
     required this.teamId,
+    this.isPublic = false, // Default: Private (hanya owner yang lihat)
   });
 
   // [CONVERT] Memasukkan data ke "Kardus" (BSON/Map) untuk dikirim ke Cloud
@@ -40,6 +44,7 @@ class LogModel {
     'date': date,
     'authorId': authorId,
     'teamId': teamId,
+    'isPublic': isPublic, // Task 5: Include privacy status
   };
 
   // [REVERT] Membongkar "Kardus" (BSON/Map) kembali menjadi objek Flutter
@@ -50,6 +55,7 @@ class LogModel {
       description: map['description'] ?? '',
       date: map['date'] ?? '',
       authorId: map['authorId'] ?? 'unknown_user', // Cegah error null
+      isPublic: map['isPublic'] ?? false, // Task 5: Default private
       teamId: map['teamId'] ?? 'no_team',
     );
   }
