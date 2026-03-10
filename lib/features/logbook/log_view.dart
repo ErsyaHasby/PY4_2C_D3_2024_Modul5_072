@@ -3,8 +3,8 @@ import 'package:logbook_app_modul5/features/logbook/log_controller.dart';
 import 'package:logbook_app_modul5/features/logbook/models/log_model.dart';
 import 'package:logbook_app_modul5/features/logbook/log_editor_page.dart';
 import 'package:logbook_app_modul5/features/onboarding/onboarding_view.dart';
-import 'package:logbook_app_modul5/services/access_control_service.dart';
 import 'package:logbook_app_modul5/services/connectivity_service.dart';
+import 'package:logbook_app_modul5/utils/access_policy.dart';
 
 /// LogView - Main Logbook Page (Modul 5: Offline-First & RBAC)
 ///
@@ -23,11 +23,15 @@ class LogView extends StatefulWidget {
 class _LogViewState extends State<LogView> {
   late LogController _controller;
   final ConnectivityService _connectivityService = ConnectivityService();
+  late AccessPolicy _accessPolicy; // Task 3: RBAC Policy Manager
 
   @override
   void initState() {
     super.initState();
     _controller = LogController();
+
+    // Initialize AccessPolicy untuk permission management
+    _accessPolicy = AccessPolicy.fromUser(widget.currentUser);
 
     // Load logs for current user's team (Team Isolation)
     _controller.loadFromDisk(teamId: widget.currentUser['teamId']);
@@ -73,22 +77,15 @@ class _LogViewState extends State<LogView> {
     );
   }
 
-  /// Delete Log dengan Confirmation Dialog
+  /// Delete Log dengan Confirmation Dialog - Task 3: Using AccessPolicy
   Future<void> _deleteLog(int index) async {
     final log = _controller.logs[index];
 
-    // GATEKEEPER: Security check di UI layer
-    final bool isOwner = log.authorId == widget.currentUser['uid'];
-    if (!AccessControlService.canPerform(
-      widget.currentUser['role']!,
-      AccessControlService.actionDelete,
-      isOwner: isOwner,
-    )) {
+    // Task 3 GATEKEEPER: Security check menggunakan AccessPolicy
+    if (!_accessPolicy.canDelete(log.authorId)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '❌ Anda tidak memiliki akses untuk menghapus data ini!',
-          ),
+        SnackBar(
+          content: Text(_accessPolicy.getDeniedMessage('menghapus')),
           backgroundColor: Colors.red,
         ),
       );
@@ -159,7 +156,7 @@ class _LogViewState extends State<LogView> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
         actions: [
-          // Info RBAC
+          // Info RBAC - Task 3: Display AccessPolicy information
           IconButton(
             icon: const Icon(Icons.info_outline),
             onPressed: () {
@@ -171,16 +168,17 @@ class _LogViewState extends State<LogView> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Role: ${widget.currentUser['role']}'),
+                      Text(_accessPolicy.accessLevelDescription),
+                      const SizedBox(height: 8),
                       Text('Team: ${widget.currentUser['teamId']}'),
                       const SizedBox(height: 12),
                       const Text(
                         'Permissions:',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      ...AccessControlService.getPermissions(
-                        widget.currentUser['role']!,
-                      ).map((perm) => Text('✅ $perm')),
+                      ..._accessPolicy.permissions.map(
+                        (perm) => Text('✅ $perm'),
+                      ),
                     ],
                   ),
                   actions: [
@@ -272,20 +270,10 @@ class _LogViewState extends State<LogView> {
             itemBuilder: (context, index) {
               final log = logs[index];
 
-              // Check ownership untuk RBAC
+              // Task 3: Check ownership and permissions
               final bool isOwner = log.authorId == widget.currentUser['uid'];
-
-              // Check permissions
-              final canEdit = AccessControlService.canPerform(
-                widget.currentUser['role']!,
-                AccessControlService.actionUpdate,
-                isOwner: isOwner,
-              );
-              final canDelete = AccessControlService.canPerform(
-                widget.currentUser['role']!,
-                AccessControlService.actionDelete,
-                isOwner: isOwner,
-              );
+              final canEdit = _accessPolicy.canUpdate(log.authorId);
+              final canDelete = _accessPolicy.canDelete(log.authorId);
 
               return Card(
                 elevation: 2,
