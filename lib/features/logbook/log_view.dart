@@ -33,27 +33,67 @@ class _LogViewState extends State<LogView> {
     // Initialize AccessPolicy untuk permission management
     _accessPolicy = AccessPolicy.fromUser(widget.currentUser);
 
-    // Load logs for current user's team (Team Isolation)
-    _controller.loadFromDisk(teamId: widget.currentUser['teamId']);
+    // Tunggu Hive initialization selesai sebelum load data
+    _waitForHiveInit();
 
     // Start connectivity monitoring for Auto-Sync
     _connectivityService.startMonitoring(
-      onConnectivityRestored: () {
-        // Auto-sync when network restored
-        _controller.loadFromDisk(teamId: widget.currentUser['teamId']);
-
-        // Show notification
+      onConnectivityRestored: () async {
+        // Task 4: Auto-sync pending logs when network restored
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('🌐 Koneksi pulih! Data sedang disinkronkan...'),
-              backgroundColor: Colors.green,
-              duration: Duration(seconds: 2),
+              content: Text('🌐 Koneksi pulih! Mensinkronkan data...'),
+              backgroundColor: Colors.blue,
+              duration: Duration(seconds: 1),
             ),
           );
         }
+
+        // Batch sync all pending logs
+        final (successCount, failCount) = await _controller.syncPendingLogs(
+          teamId: widget.currentUser['teamId'],
+        );
+
+        // Show result notification
+        if (mounted) {
+          if (successCount > 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  '✅ $successCount data berhasil disinkronkan ke Cloud!',
+                ),
+                backgroundColor: Colors.green,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+          } else if (failCount > 0) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('⚠️ Beberapa data gagal disinkronkan'),
+                backgroundColor: Colors.orange,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+
+        // Refresh data from cloud
+        _controller.loadFromDisk(teamId: widget.currentUser['teamId']);
       },
     );
+  }
+
+  /// Wait for Hive initialization before loading data
+  Future<void> _waitForHiveInit() async {
+    // Poll sampai Hive initialized
+    while (!_controller.isInitialized) {
+      await Future.delayed(const Duration(milliseconds: 100));
+    }
+    // Setelah Hive ready, load data
+    if (mounted) {
+      _controller.loadFromDisk(teamId: widget.currentUser['teamId']);
+    }
   }
 
   @override
@@ -156,6 +196,84 @@ class _LogViewState extends State<LogView> {
         backgroundColor: Colors.indigo,
         foregroundColor: Colors.white,
         actions: [
+          // Task 4: Sync Status & Manual Sync Button
+          ValueListenableBuilder<SyncStatus>(
+            valueListenable: _controller.syncStatusNotifier,
+            builder: (context, syncStatus, child) {
+              // Show pending count if there are unsynced logs
+              if (_controller.hasPendingSync && syncStatus == SyncStatus.idle) {
+                return Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.sync),
+                      tooltip: 'Sinkronkan Data',
+                      onPressed: () async {
+                        final (success, fail) = await _controller
+                            .syncPendingLogs(
+                              teamId: widget.currentUser['teamId'],
+                            );
+                        if (mounted && success > 0) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '✅ $success data berhasil disinkronkan!',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Text(
+                          '${_controller.unsyncedCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              // Show syncing indicator
+              if (syncStatus == SyncStatus.syncing) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  ),
+                );
+              }
+
+              // Show success checkmark briefly
+              if (syncStatus == SyncStatus.success) {
+                return const Icon(
+                  Icons.check_circle,
+                  color: Colors.greenAccent,
+                );
+              }
+
+              return const SizedBox.shrink();
+            },
+          ),
+
           // Info RBAC - Task 3: Display AccessPolicy information
           IconButton(
             icon: const Icon(Icons.info_outline),
