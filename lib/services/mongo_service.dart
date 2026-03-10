@@ -1,7 +1,7 @@
 import 'package:mongo_dart/mongo_dart.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:logbook_app_modul4/helpers/log_helper.dart';
-import 'package:logbook_app_modul4/features/logbook/models/log_model.dart';
+import 'package:logbook_app_modul5/helpers/log_helper.dart';
+import 'package:logbook_app_modul5/features/logbook/models/log_model.dart';
 
 /// MongoService - Menangani koneksi dan operasi database MongoDB
 /// Menerapkan Singleton Pattern dan Single Responsibility Principle (SRP)
@@ -118,7 +118,10 @@ class MongoService {
         throw Exception("ID Log tidak ditemukan untuk update");
       }
 
-      await collection.replaceOne(where.id(log.id!), log.toMap());
+      await collection.replaceOne(
+        where.id(ObjectId.fromHexString(log.id!)),
+        log.toMap(),
+      );
 
       await LogHelper.writeLog(
         "DATABASE: Update '${log.title}' Berhasil",

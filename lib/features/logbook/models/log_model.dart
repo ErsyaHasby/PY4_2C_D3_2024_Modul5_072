@@ -1,39 +1,56 @@
-import 'package:mongo_dart/mongo_dart.dart';
+import 'package:hive/hive.dart';
+import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
 
+part 'log_model.g.dart';
+
+@HiveType(typeId: 0)
 class LogModel {
-  final ObjectId? id; // Penanda unik global dari MongoDB
+  @HiveField(0)
+  final String? id;
+
+  @HiveField(1)
   final String title;
-  final String date;
+
+  @HiveField(2)
   final String description;
-  final String category; // HOMEWORK: Kategori log
+
+  @HiveField(3)
+  final String date;
+
+  @HiveField(4)
+  final String authorId; // BARU: ID pemilik log
+
+  @HiveField(5)
+  final String teamId; // BARU: ID kelompok untuk kolaborasi
 
   LogModel({
     this.id,
     required this.title,
-    required this.date,
     required this.description,
-    this.category = 'Pribadi', // Default category
+    required this.date,
+    required this.authorId,
+    required this.teamId,
   });
 
   // [CONVERT] Memasukkan data ke "Kardus" (BSON/Map) untuk dikirim ke Cloud
-  Map<String, dynamic> toMap() {
-    return {
-      '_id': id ?? ObjectId(), // Buat ID otomatis jika belum ada
-      'title': title,
-      'date': date,
-      'description': description,
-      'category': category,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        '_id': id != null ? ObjectId.fromHexString(id!) : ObjectId(),
+        'title': title,
+        'description': description,
+        'date': date,
+        'authorId': authorId,
+        'teamId': teamId,
+      };
 
   // [REVERT] Membongkar "Kardus" (BSON/Map) kembali menjadi objek Flutter
   factory LogModel.fromMap(Map<String, dynamic> map) {
     return LogModel(
-      id: map['_id'] as ObjectId?,
+      id: (map['_id'] as ObjectId?)?.oid,
       title: map['title'] ?? '',
-      date: map['date'] ?? DateTime.now().toString(),
       description: map['description'] ?? '',
-      category: map['category'] ?? 'Pribadi', // Backward compatibility
+      date: map['date'] ?? '',
+      authorId: map['authorId'] ?? 'unknown_user', // Cegah error null
+      teamId: map['teamId'] ?? 'no_team',
     );
   }
 }

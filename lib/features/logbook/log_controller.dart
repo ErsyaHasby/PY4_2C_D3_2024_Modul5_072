@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:mongo_dart/mongo_dart.dart';
+import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
 import 'models/log_model.dart';
-import 'package:logbook_app_modul4/services/mongo_service.dart';
-import 'package:logbook_app_modul4/helpers/log_helper.dart';
+import 'package:logbook_app_modul5/services/mongo_service.dart';
+import 'package:logbook_app_modul5/helpers/log_helper.dart';
 
 class LogController {
   final ValueNotifier<List<LogModel>> logsNotifier =
@@ -38,14 +38,16 @@ class LogController {
   Future<void> addLog(
     String title,
     String desc, {
-    String category = 'Pribadi',
+    required String authorId,
+    required String teamId,
   }) async {
     final newLog = LogModel(
-      id: ObjectId(),
+      id: null, // Akan di-generate oleh MongoDB
       title: title,
       description: desc,
       date: DateTime.now().toString(),
-      category: category,
+      authorId: authorId,
+      teamId: teamId,
     );
 
     try {
@@ -77,9 +79,8 @@ class LogController {
   Future<void> updateLog(
     int index,
     String newTitle,
-    String newDesc, {
-    String category = 'Pribadi',
-  }) async {
+    String newDesc,
+  ) async {
     final currentLogs = List<LogModel>.from(logsNotifier.value);
     final oldLog = currentLogs[index];
 
@@ -88,7 +89,8 @@ class LogController {
       title: newTitle,
       description: newDesc,
       date: DateTime.now().toString(),
-      category: category,
+      authorId: oldLog.authorId, // Tetap sama
+      teamId: oldLog.teamId, // Tetap sama
     );
 
     try {
@@ -128,7 +130,7 @@ class LogController {
       }
 
       // Hapus data di MongoDB Atlas
-      await MongoService().deleteLog(targetLog.id!);
+      await MongoService().deleteLog(ObjectId.fromHexString(targetLog.id!));
 
       // Jika sukses, baru hapus dari state lokal
       currentLogs.removeAt(index);

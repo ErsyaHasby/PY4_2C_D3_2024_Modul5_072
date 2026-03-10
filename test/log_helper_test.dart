@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:logbook_app_modul4/helpers/log_helper.dart';
+import 'package:logbook_app_modul5/helpers/log_helper.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 

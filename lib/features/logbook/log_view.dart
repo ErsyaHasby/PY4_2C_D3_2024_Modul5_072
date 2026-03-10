@@ -2,11 +2,11 @@ import 'dart:io'; // Homework: Connection Guard
 import 'dart:async'; // Homework: TimeoutException
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart'; // Homework: Timestamp Formatting
-import 'package:logbook_app_modul4/features/logbook/log_controller.dart';
-import 'package:logbook_app_modul4/features/logbook/models/log_model.dart';
-import 'package:logbook_app_modul4/features/onboarding/onboarding_view.dart';
-import 'package:logbook_app_modul4/services/mongo_service.dart';
-import 'package:logbook_app_modul4/helpers/log_helper.dart';
+import 'package:logbook_app_modul5/features/logbook/log_controller.dart';
+import 'package:logbook_app_modul5/features/logbook/models/log_model.dart';
+import 'package:logbook_app_modul5/features/onboarding/onboarding_view.dart';
+import 'package:logbook_app_modul5/services/mongo_service.dart';
+import 'package:logbook_app_modul5/helpers/log_helper.dart';
 
 class LogView extends StatefulWidget {
   final String username;
@@ -253,12 +253,13 @@ class _LogViewState extends State<LogView> {
                   return;
                 }
 
-                // HOMEWORK: Jalankan fungsi tambah dengan category
+                // HOMEWORK: Jalankan fungsi tambah dengan teamId dan authorId
                 _controller
                     .addLog(
                       _titleController.text,
                       _contentController.text,
-                      category: _selectedCategory,
+                      authorId: widget.username,
+                      teamId: 'MEKTRA_KLP_01', // TODO: Ambil dari user profile
                     )
                     .then((_) {
                       // Task 3: Auto-refresh dengan ganti key FutureBuilder
@@ -296,7 +297,7 @@ class _LogViewState extends State<LogView> {
   void _showEditLogDialog(int index, LogModel log) {
     _titleController.text = log.title;
     _contentController.text = log.description;
-    _selectedCategory = log.category;
+    _selectedCategory = 'Pribadi'; // Reset category (field removed in Modul 5)
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -381,13 +382,12 @@ class _LogViewState extends State<LogView> {
                   return;
                 }
 
-                // HOMEWORK: Update dengan category
+                // Update log tanpa perlu category (authorId dan teamId tetap sama)
                 _controller
                     .updateLog(
                       index,
                       _titleController.text,
                       _contentController.text,
-                      category: _selectedCategory,
                     )
                     .then((_) {
                       if (mounted) {
@@ -726,8 +726,9 @@ class _LogViewState extends State<LogView> {
                     itemBuilder: (context, index) {
                       final log = currentLogs[index];
                       final displayDate = _formatDate(log.date);
-                      final categoryColor = _getCategoryColor(log.category);
-                      final categoryIcon = _getCategoryIcon(log.category);
+                      // Modul 5: Ganti category dengan author info
+                      final categoryColor = Colors.indigo;
+                      final categoryIcon = Icons.person;
 
                       // HOMEWORK: Dismissible for swipe-to-delete
                       return Dismissible(
@@ -878,7 +879,7 @@ class _LogViewState extends State<LogView> {
                                           ),
                                         ),
                                         child: Text(
-                                          log.category,
+                                          log.authorId,
                                           style: const TextStyle(
                                             color: Colors.white,
                                             fontSize: 11,
