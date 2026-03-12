@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:mongo_dart/mongo_dart.dart' show ObjectId;
 
@@ -26,6 +27,9 @@ class LogModel {
   @HiveField(6)
   final bool isPublic; // TASK 5: Privacy control - true=Public, false=Private
 
+  @HiveField(7)
+  final String category; // HOMEWORK: Categorization - Mechanical/Electronic/Software
+
   LogModel({
     this.id,
     required this.title,
@@ -34,6 +38,7 @@ class LogModel {
     required this.authorId,
     required this.teamId,
     this.isPublic = false, // Default: Private (hanya owner yang lihat)
+    this.category = 'Software', // Default: Software
   });
 
   // [CONVERT] Memasukkan data ke "Kardus" (BSON/Map) untuk dikirim ke Cloud
@@ -45,6 +50,7 @@ class LogModel {
     'authorId': authorId,
     'teamId': teamId,
     'isPublic': isPublic, // Task 5: Include privacy status
+    'category': category, // Homework: Include category
   };
 
   // [REVERT] Membongkar "Kardus" (BSON/Map) kembali menjadi objek Flutter
@@ -55,8 +61,37 @@ class LogModel {
       description: map['description'] ?? '',
       date: map['date'] ?? '',
       authorId: map['authorId'] ?? 'unknown_user', // Cegah error null
+      teamId: map['teamId'] ?? 'default_team', // Cegah error null
       isPublic: map['isPublic'] ?? false, // Task 5: Default private
-      teamId: map['teamId'] ?? 'no_team',
+      category: map['category'] ?? 'Software', // Homework: Default category
     );
+  }
+
+  // Helper: Get category color
+  static Color getCategoryColor(String category) {
+    switch (category) {
+      case 'Mechanical':
+        return const Color(0xFF4CAF50); // Green
+      case 'Electronic':
+        return const Color(0xFF2196F3); // Blue
+      case 'Software':
+        return const Color(0xFF9C27B0); // Purple
+      default:
+        return const Color(0xFF757575); // Grey
+    }
+  }
+
+  // Helper: Get category icon
+  static IconData getCategoryIcon(String category) {
+    switch (category) {
+      case 'Mechanical':
+        return Icons.build;
+      case 'Electronic':
+        return Icons.electrical_services;
+      case 'Software':
+        return Icons.code;
+      default:
+        return Icons.category;
+    }
   }
 }

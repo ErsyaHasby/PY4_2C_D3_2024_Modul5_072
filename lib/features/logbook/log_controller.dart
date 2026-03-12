@@ -84,6 +84,7 @@ class LogController {
     required String authorId,
     required String teamId,
     bool isPublic = false, // Task 5: Privacy control
+    String category = 'Software', // Homework: Categorization
   }) async {
     if (_offlineBox == null) {
       throw Exception('Hive not initialized yet. Please wait...');
@@ -97,6 +98,7 @@ class LogController {
       authorId: authorId,
       teamId: teamId,
       isPublic: isPublic, // Task 5: Set visibility
+      category: category, // Homework: Set category
     );
 
     try {
@@ -125,6 +127,7 @@ class LogController {
             authorId: newLog.authorId,
             teamId: newLog.teamId,
             isPublic: newLog.isPublic, // Task 5: Preserve privacy setting
+            category: newLog.category, // Homework: Preserve category
           );
 
           // Find index in Hive box dan update
@@ -168,6 +171,7 @@ class LogController {
     String newDesc, {
     Map<String, String>? currentUser, // Optional for backward compatibility
     bool? isPublic, // Task 5: Optional privacy update
+    String? category, // Homework: Optional category update
   }) async {
     if (_offlineBox == null) {
       throw Exception('Hive not initialized yet. Please wait...');
@@ -194,6 +198,7 @@ class LogController {
       authorId: oldLog.authorId, // Tetap sama
       teamId: oldLog.teamId, // Tetap sama
       isPublic: isPublic ?? oldLog.isPublic, // Task 5: Update or preserve
+      category: category ?? oldLog.category, // Homework: Update or preserve
     );
 
     try {
@@ -229,6 +234,7 @@ class LogController {
               authorId: updatedLog.authorId,
               teamId: updatedLog.teamId,
               isPublic: updatedLog.isPublic, // Task 5: Preserve privacy
+              category: updatedLog.category, // Homework: Preserve category
             );
             await _offlineBox!.putAt(index, logWithId);
             _loadFromHive();

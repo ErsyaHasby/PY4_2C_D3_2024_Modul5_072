@@ -31,6 +31,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
   late TextEditingController _descController;
   bool _isSaving = false;
   late bool _isPublic; // Task 5: Privacy control state
+  late String _selectedCategory; // Homework: Category selection
 
   @override
   void initState() {
@@ -42,6 +43,8 @@ class _LogEditorPageState extends State<LogEditorPage> {
     );
     // Task 5: Initialize privacy state (default: private)
     _isPublic = widget.log?.isPublic ?? false;
+    // Homework: Initialize category (default: Software)
+    _selectedCategory = widget.log?.category ?? 'Software';
 
     // PENTING: Listener agar Pratinjau terupdate otomatis
     _descController.addListener(() {
@@ -73,6 +76,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
           authorId: widget.currentUser['uid']!,
           teamId: widget.currentUser['teamId']!,
           isPublic: _isPublic, // Task 5: Pass privacy setting
+          category: _selectedCategory, // Homework: Pass category
         );
       } else {
         // MODE: Update (dengan SOVEREIGNTY validation)
@@ -82,6 +86,7 @@ class _LogEditorPageState extends State<LogEditorPage> {
           _descController.text.trim(),
           currentUser: widget.currentUser,
           isPublic: _isPublic, // Task 5: Pass privacy setting
+          category: _selectedCategory, // Homework: Pass category
         );
       }
 
@@ -190,6 +195,88 @@ class _LogEditorPageState extends State<LogEditorPage> {
                         });
                       },
                       activeColor: Colors.green,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Homework: Category Dropdown
+                  Card(
+                    elevation: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            LogModel.getCategoryIcon(_selectedCategory),
+                            color: LogModel.getCategoryColor(_selectedCategory),
+                            size: 32,
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Kategori Proyek',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                DropdownButton<String>(
+                                  value: _selectedCategory,
+                                  isExpanded: true,
+                                  underline: Container(),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: LogModel.getCategoryColor(
+                                      _selectedCategory,
+                                    ),
+                                  ),
+                                  items:
+                                      [
+                                        'Mechanical',
+                                        'Electronic',
+                                        'Software',
+                                      ].map((String category) {
+                                        return DropdownMenuItem<String>(
+                                          value: category,
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                LogModel.getCategoryIcon(
+                                                  category,
+                                                ),
+                                                size: 20,
+                                                color:
+                                                    LogModel.getCategoryColor(
+                                                      category,
+                                                    ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(category),
+                                            ],
+                                          ),
+                                        );
+                                      }).toList(),
+                                  onChanged: (String? newValue) {
+                                    if (newValue != null) {
+                                      setState(() {
+                                        _selectedCategory = newValue;
+                                      });
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),

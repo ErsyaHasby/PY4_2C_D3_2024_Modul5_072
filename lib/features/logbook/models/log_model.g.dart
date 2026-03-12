@@ -24,13 +24,14 @@ class LogModelAdapter extends TypeAdapter<LogModel> {
       authorId: fields[4] as String,
       teamId: fields[5] as String,
       isPublic: fields[6] as bool,
+      category: fields[7] as String,
     );
   }
 
   @override
   void write(BinaryWriter writer, LogModel obj) {
     writer
-      ..writeByte(7)
+      ..writeByte(8)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -44,7 +45,9 @@ class LogModelAdapter extends TypeAdapter<LogModel> {
       ..writeByte(5)
       ..write(obj.teamId)
       ..writeByte(6)
-      ..write(obj.isPublic);
+      ..write(obj.isPublic)
+      ..writeByte(7)
+      ..write(obj.category);
   }
 
   @override
